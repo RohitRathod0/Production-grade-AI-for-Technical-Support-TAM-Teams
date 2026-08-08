@@ -8,3 +8,4 @@ fastapi
 uvicorn
 streamlit
 mistralai
+httpx

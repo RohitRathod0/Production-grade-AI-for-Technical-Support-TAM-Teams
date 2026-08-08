@@ -1,17 +1,30 @@
-"""Thin Groq/Mistral wrapper shared by the application agents and the eval judge."""
+"""Thin Groq/Mistral/OpenRouter wrapper shared by the application agents and the eval
+judge. The primary (groq) call retries with exponential backoff; if every retry is
+exhausted on a 429 rate limit, chat() fails over to OpenRouter's free tier (PRD
+§8/§11.4) transparently — callers never see a different return shape or need to know
+a fallback happened. Every fallback event is logged at WARNING/ERROR so it's visible
+in the CLI/Loom demo and citable as real evidence in DESIGN_NOTE.md's failure modes.
+"""
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from groq import Groq
+from groq import RateLimitError as GroqRateLimitError
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src import config
 
+logger = logging.getLogger(__name__)
+
 _groq_client: Groq | None = None
 _mistral_client: Any | None = None
+
+OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 if TYPE_CHECKING:
     from mistralai.client import Mistral
@@ -41,7 +54,71 @@ def _get_mistral_client() -> Any:
     return _mistral_client
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True)
+def _groq_call(
+    messages: list[dict], json_mode: bool, temperature: float, seed: int | None, stream: bool
+) -> str | Iterator[str]:
+    kwargs = {"response_format": {"type": "json_object"}} if json_mode else {}
+    if seed is not None:
+        kwargs["seed"] = seed
+    response = _get_groq_client().chat.completions.create(
+        model=config.GROQ_MODEL,
+        messages=messages,
+        temperature=temperature,
+        stream=stream,
+        **kwargs,
+    )
+    if stream:
+        return (
+            delta.content
+            for chunk in response
+            if chunk.choices and (delta := chunk.choices[0].delta).content
+        )
+    return response.choices[0].message.content
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True)
+def _mistral_call(messages: list[dict], json_mode: bool, temperature: float) -> str:
+    kwargs = {"response_format": {"type": "json_object"}} if json_mode else {}
+    response = _get_mistral_client().chat.complete(
+        model=config.MISTRAL_MODEL,
+        messages=messages,
+        temperature=temperature,
+        **kwargs,
+    )
+    return response.choices[0].message.content
+
+
+def _openrouter_call(messages: list[dict], temperature: float) -> str:
+    """Secondary/fallback provider (PRD §8, §11.4). Called over plain HTTP (OpenAI-
+    compatible REST shape) rather than pulling in another SDK, since this path only
+    runs when Groq is rate-limited after every retry — deliberately rare.
+
+    No `response_format` is sent (unlike the primary providers): tested live, the
+    default free-tier model (config.OPENROUTER_MODEL) 400s on `response_format:
+    json_object` with "does not support feature". Every prompt already instructs
+    "return a single JSON object" in plain text (verified live: the model complies
+    without needing enforced JSON mode), and callers already retry once on a parse
+    failure — so this degrades to prompt-enforced JSON rather than provider-enforced,
+    an acceptable trade-off for a rarely-used fallback path.
+    """
+    if not config.OPENROUTER_API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY is not set — cannot fail over to OpenRouter.")
+    payload: dict[str, Any] = {
+        "model": config.OPENROUTER_MODEL,
+        "messages": messages,
+        "temperature": temperature,
+    }
+    response = httpx.post(
+        OPENROUTER_CHAT_URL,
+        headers={"Authorization": f"Bearer {config.OPENROUTER_API_KEY}"},
+        json=payload,
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"]
+
+
 def chat(
     messages: list[dict],
     json_mode: bool = False,
@@ -57,6 +134,14 @@ def chat(
     config.JUDGE_PROVIDER (Mistral, a different model family than the primary Groq
     agent, per PRD §8) without agent code ever picking a provider itself.
 
+    Fallback (provider="groq" only): each retry attempt is Groq; if all 3 are
+    exhausted and the final failure is specifically a 429 rate limit, this fails over
+    once to OpenRouter's free tier and returns its result instead of raising. A
+    non-rate-limit failure (auth, bad request, ...) is never retried onto a different
+    provider — retrying a config problem on another provider would just mask it.
+    Streaming responses are never eligible for fallback (there's nothing sane to
+    hand back mid-stream); a rate limit on a streaming call still raises.
+
     ``stream=True`` uses Groq's native streaming API and is not supported for the
     mistral provider (the judge never streams). Structured-output callers must buffer
     a complete stream and validate it before treating it as a result.
@@ -64,34 +149,28 @@ def chat(
     provider = provider or config.LLM_PROVIDER
 
     if provider == "groq":
-        kwargs = {"response_format": {"type": "json_object"}} if json_mode else {}
-        if seed is not None:
-            kwargs["seed"] = seed
-        response = _get_groq_client().chat.completions.create(
-            model=config.GROQ_MODEL,
-            messages=messages,
-            temperature=temperature,
-            stream=stream,
-            **kwargs,
-        )
-        if stream:
-            return (
-                delta.content
-                for chunk in response
-                if chunk.choices and (delta := chunk.choices[0].delta).content
+        try:
+            return _groq_call(messages, json_mode, temperature, seed, stream)
+        except GroqRateLimitError as exc:
+            if stream:
+                raise
+            logger.warning(
+                "Groq rate-limited after exhausting all retries (%s) — failing over to "
+                "OpenRouter (%s).",
+                exc,
+                config.OPENROUTER_MODEL,
             )
-        return response.choices[0].message.content
+            try:
+                result = _openrouter_call(messages, temperature)
+            except Exception:
+                logger.error("OpenRouter fallback also failed; no further fallback configured.", exc_info=True)
+                raise
+            logger.warning("OpenRouter fallback succeeded for this call.")
+            return result
 
     if provider == "mistral":
         if stream:
             raise ValueError("stream=True is not supported for provider='mistral'")
-        kwargs = {"response_format": {"type": "json_object"}} if json_mode else {}
-        response = _get_mistral_client().chat.complete(
-            model=config.MISTRAL_MODEL,
-            messages=messages,
-            temperature=temperature,
-            **kwargs,
-        )
-        return response.choices[0].message.content
+        return _mistral_call(messages, json_mode, temperature)
 
     raise ValueError(f"Unsupported provider: {provider!r}")
