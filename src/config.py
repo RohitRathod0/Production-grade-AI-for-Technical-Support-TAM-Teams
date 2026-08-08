@@ -38,5 +38,13 @@ MISTRAL_MODEL = "mistral-small-latest"
 # inclusionai/ling-3.0-tiny:free was verified live (real 200 response) as of the same
 # test — but re-verify at openrouter.ai/models?q=free before relying on it later, and
 # don't assume any hardcoded free-tier id stays valid.
+#
+# Known, accepted trade-off: this fallback model is far smaller than the primary
+# (a small free-tier model vs. Groq's 70B llama-3.3-70b-versatile), so structured
+# classification/JSON quality is expected to be noticeably weaker on the rare calls
+# that actually take this path. That's intentional — the fallback exists to keep the
+# pipeline available under a rate limit, not to match primary-model quality; a
+# degraded-but-real answer beats a hard failure. Not something to "fix" by chasing a
+# bigger free model — availability, not peak quality, is the design goal here.
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL") or "inclusionai/ling-3.0-tiny:free"
