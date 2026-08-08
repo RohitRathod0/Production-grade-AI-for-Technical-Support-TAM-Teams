@@ -156,8 +156,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.handler(args)
-    except (OSError, ValueError) as exc:
-        print(f"error: {exc}")
+    except Exception as exc:
+        # Broad on purpose: triage/brief call live LLM providers directly (unlike
+        # `eval`, which already catches per-case failures in scorer.py, and the
+        # FastAPI routes, which already wrap agent calls in HTTPException). Found via
+        # fresh-clone testing with an empty .env: an empty GROQ_API_KEY produces
+        # groq.APIConnectionError (masking the real "Illegal header value" auth
+        # cause several layers down) — narrower except clauses let that reach the
+        # user as a raw traceback instead of a clean one-line error.
+        print(f"error: {type(exc).__name__}: {exc}")
         return 2
 
 
