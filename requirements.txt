@@ -1,0 +1,10 @@
+# Python 3.11
+rank_bm25
+pydantic
+python-dotenv
+groq
+tenacity
+fastapi
+uvicorn
+streamlit
+mistralai
