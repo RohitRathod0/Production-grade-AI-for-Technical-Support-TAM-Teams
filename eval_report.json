@@ -1,8 +1,9 @@
 {
-  "generated_at": "2026-08-09T06:52:02.616324+00:00",
+  "generated_at": "2026-08-09T07:25:16.706804+00:00",
   "total_cases": 10,
   "hard_gate_passes": 10,
   "hard_gate_failures": 0,
+  "hard_gate_skipped": 0,
   "results": [
     {
       "case_id": "triage_01_clean_baseline",
@@ -11,8 +12,8 @@
       "hard_gate_pass": true,
       "hard_gate_failures": [],
       "quality_score": 0.633,
-      "judge_notes": "KB match snippet is irrelevant to the ticket; reasoning and draft_response are faithful but routing reasoning is incorrect.",
-      "notes": "KB match snippet is irrelevant to the ticket; reasoning and draft_response are faithful but routing reasoning is incorrect."
+      "judge_notes": "KB match is irrelevant to the ticket; reasoning and draft_response are faithful but kb_match and routing snippets are fabricated.",
+      "notes": "KB match is irrelevant to the ticket; reasoning and draft_response are faithful but kb_match and routing snippets are fabricated."
     },
     {
       "case_id": "triage_02_ambiguous_dual_signal",
@@ -20,9 +21,9 @@
       "adversarial": true,
       "hard_gate_pass": true,
       "hard_gate_failures": [],
-      "quality_score": 0.95,
-      "judge_notes": "Output is highly relevant and complete, with minor faithfulness deduction for generic SLA credit reference not explicitly in source data.",
-      "notes": "Output is highly relevant and complete, with minor faithfulness deduction for generic SLA credit reference not explicitly in source data."
+      "quality_score": 0.833,
+      "judge_notes": "KB match snippet is irrelevant to performance issues; otherwise accurate and complete.",
+      "notes": "KB match snippet is irrelevant to performance issues; otherwise accurate and complete."
     },
     {
       "case_id": "triage_03_no_kb_match",
@@ -31,8 +32,8 @@
       "hard_gate_pass": true,
       "hard_gate_failures": [],
       "quality_score": 1.0,
-      "judge_notes": "Output perfectly matches the ticket details, avoids fabrication, and covers all required components.",
-      "notes": "Output perfectly matches the ticket details, avoids fabrication, and covers all required components."
+      "judge_notes": "Output perfectly addresses the ticket with accurate classification, reasoning, and draft response grounded in source data.",
+      "notes": "Output perfectly addresses the ticket with accurate classification, reasoning, and draft response grounded in source data."
     },
     {
       "case_id": "triage_04_missing_account_id",
@@ -40,9 +41,9 @@
       "adversarial": true,
       "hard_gate_pass": true,
       "hard_gate_failures": [],
-      "quality_score": 0.8,
-      "judge_notes": "KB match is irrelevant to the ticket's error; draft response is generic but not factually incorrect.",
-      "notes": "KB match is irrelevant to the ticket's error; draft response is generic but not factually incorrect."
+      "quality_score": 1.0,
+      "judge_notes": "Output perfectly matches the ticket, avoids fabrication, and covers all required elements (classification, KB grounding, draft response, routing).",
+      "notes": "Output perfectly matches the ticket, avoids fabrication, and covers all required elements (classification, KB grounding, draft response, routing)."
     },
     {
       "case_id": "triage_05_known_kb_doc_match",
@@ -51,8 +52,8 @@
       "hard_gate_pass": true,
       "hard_gate_failures": [],
       "quality_score": 1.0,
-      "judge_notes": "Output perfectly aligns with source data, avoids fabrication, and covers all required elements.",
-      "notes": "Output perfectly aligns with source data, avoids fabrication, and covers all required elements."
+      "judge_notes": "Output perfectly matches source data with no fabrication or omissions.",
+      "notes": "Output perfectly matches source data with no fabrication or omissions."
     },
     {
       "case_id": "brief_01_at_risk_with_escalation_and_p1",
@@ -70,9 +71,9 @@
       "adversarial": false,
       "hard_gate_pass": true,
       "hard_gate_failures": [],
-      "quality_score": 0.9,
-      "judge_notes": "Output is highly relevant and faithful but invents a 90-day ticket window not present in source and omits plan_tier despite completeness otherwise.",
-      "notes": "Output is highly relevant and faithful but invents a 90-day ticket window not present in source and omits plan_tier despite completeness otherwise."
+      "quality_score": 0.733,
+      "judge_notes": "Relevance is high but slightly penalized for generic phrasing; faithfulness loses points for fabricating dissatisfaction from NPS=6; completeness misses the Starter plan tier and escalation notes.",
+      "notes": "Relevance is high but slightly penalized for generic phrasing; faithfulness loses points for fabricating dissatisfaction from NPS=6; completeness misses the Starter plan tier and escalation notes."
     },
     {
       "case_id": "brief_03_null_nps",

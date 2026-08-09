@@ -47,11 +47,20 @@ class EvalResult:
     case_id: str
     task: str
     adversarial: bool
-    hard_gate_pass: bool
+    hard_gate_pass: bool | None  # None = SKIPPED (no provider key in this environment), not evaluated
     hard_gate_failures: list[str]
-    quality_score: float | None  # None if hard gates failed — judge never ran
+    quality_score: float | None  # None if hard gates failed/skipped, or judge itself was skipped
     judge_notes: str | None
     notes: str
+
+
+# CI runs with no provider keys at all (PRD: no secrets in the workflow). Detected
+# once at import time, same pattern as _account_lookup/_all_tickets above. Read via
+# config.py (never os.getenv directly, per config.py's own docstring) — config.py's
+# GROQ_API_KEY/MISTRAL_API_KEY are themselves os.getenv-backed, so this is the same
+# "present and non-empty" check, just going through the one place env vars are read.
+HAS_GROQ_KEY = bool(config.GROQ_API_KEY)
+HAS_MISTRAL_KEY = bool(config.MISTRAL_API_KEY)
 
 
 def _run_judge(task: str, source_context: str, output_json: str) -> JudgeScore | None:
@@ -70,8 +79,22 @@ def _run_judge(task: str, source_context: str, output_json: str) -> JudgeScore |
         return None
 
 
+def _maybe_run_judge(task: str, source_context: str, output_json: str) -> tuple[JudgeScore | None, str | None]:
+    """Runs the judge only if MISTRAL_API_KEY is actually set — otherwise returns a
+    clear skip reason instead of attempting (and failing) a call with no key.
+    """
+    if not HAS_MISTRAL_KEY:
+        return None, "SKIPPED (no MISTRAL_API_KEY in this environment)"
+    return _run_judge(task, source_context, output_json), None
+
+
 def _finalize(
-    case_id: str, task: str, adversarial: bool, failures: list[str], judge_score: JudgeScore | None
+    case_id: str,
+    task: str,
+    adversarial: bool,
+    failures: list[str],
+    judge_score: JudgeScore | None = None,
+    judge_skip_reason: str | None = None,
 ) -> EvalResult:
     hard_gate_pass = not failures
     quality_score = None
@@ -79,6 +102,8 @@ def _finalize(
     if judge_score is not None:
         quality_score = round((judge_score.relevance + judge_score.faithfulness + judge_score.completeness) / 3, 3)
         judge_notes = judge_score.notes
+    elif judge_skip_reason is not None:
+        judge_notes = judge_skip_reason
     notes = "; ".join(failures) if failures else (judge_notes or "hard gates passed")
     return EvalResult(
         case_id=case_id,
@@ -92,10 +117,32 @@ def _finalize(
     )
 
 
+def _finalize_skipped(case_id: str, task: str, adversarial: bool, missing_key: str) -> EvalResult:
+    """Whole case skipped: it strictly requires a live LLM call and that provider's
+    key isn't set. hard_gate_pass=None marks this distinctly from both pass (True)
+    and fail (False) everywhere the result is consumed (report writers, run.py, CI).
+    """
+    return EvalResult(
+        case_id=case_id,
+        task=task,
+        adversarial=adversarial,
+        hard_gate_pass=None,
+        hard_gate_failures=[],
+        quality_score=None,
+        judge_notes=None,
+        notes=f"SKIPPED (no {missing_key} in this environment)",
+    )
+
+
 def score_triage_case(case: TriageEvalCase) -> EvalResult:
     """Run classify_ticket() on one real ticket and score it against the case's
     hard gates, then (only if they all pass) an LLM-judge quality pass.
     """
+    if not HAS_GROQ_KEY:
+        # Every triage case needs a live classify_ticket() call — no rule-based
+        # subset survives without one, since every check inspects the LLM's output.
+        return _finalize_skipped(case.case_id, "triage", case.adversarial, "GROQ_API_KEY")
+
     try:
         result = classify_ticket(case.input)
     except Exception as exc:
@@ -135,15 +182,15 @@ def score_triage_case(case: TriageEvalCase) -> EvalResult:
     if not result.draft_response.strip():
         failures.append("draft_response is empty")
 
-    judge_score = None
+    judge_score, judge_skip_reason = None, None
     if not failures:
-        judge_score = _run_judge(
+        judge_score, judge_skip_reason = _maybe_run_judge(
             task="Task 1 ticket triage",
             source_context=f"Ticket subject: {case.input['subject']}\nTicket body: {case.input['body']}",
             output_json=result.model_dump_json(indent=2),
         )
 
-    return _finalize(case.case_id, "triage", case.adversarial, failures, judge_score)
+    return _finalize(case.case_id, "triage", case.adversarial, failures, judge_score, judge_skip_reason)
 
 
 def _account_source_context(account: dict, tickets: list[dict]) -> str:
@@ -171,6 +218,8 @@ def score_brief_case(case: BriefEvalCase) -> EvalResult:
     hard gates, then (only if they all pass) an LLM-judge quality pass.
     """
     if case.expect_error is not None:
+        # account_id lookup fails before generate_brief() ever reaches the LLM, so
+        # this case is fully rule-based — it always runs for real, key or no key.
         failures: list[str] = []
         try:
             brief_agent.generate_brief(case.account_id)
@@ -179,7 +228,10 @@ def score_brief_case(case: BriefEvalCase) -> EvalResult:
                 failures.append(f"expected {case.expect_error} but got {type(exc).__name__}: {exc}")
         else:
             failures.append(f"expected {case.expect_error} to be raised, but generate_brief() succeeded")
-        return _finalize(case.case_id, "account_brief", case.adversarial, failures, None)
+        return _finalize(case.case_id, "account_brief", case.adversarial, failures)
+
+    if not HAS_GROQ_KEY:
+        return _finalize_skipped(case.case_id, "account_brief", case.adversarial, "GROQ_API_KEY")
 
     try:
         brief = brief_agent.generate_brief(case.account_id)
@@ -230,12 +282,12 @@ def score_brief_case(case: BriefEvalCase) -> EvalResult:
         if quotes1 != quotes2:
             failures.append(f"risk_flags quotes differ between two calls to generate_brief(): {quotes1!r} vs {quotes2!r}")
 
-    judge_score = None
+    judge_score, judge_skip_reason = None, None
     if not failures:
-        judge_score = _run_judge(
+        judge_score, judge_skip_reason = _maybe_run_judge(
             task="Task 2 account-health brief",
             source_context=_account_source_context(account, tickets),
             output_json=brief.model_dump_json(indent=2),
         )
 
-    return _finalize(case.case_id, "account_brief", case.adversarial, failures, judge_score)
+    return _finalize(case.case_id, "account_brief", case.adversarial, failures, judge_score, judge_skip_reason)

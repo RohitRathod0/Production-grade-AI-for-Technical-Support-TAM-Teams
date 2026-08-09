@@ -6,12 +6,10 @@ on:
 jobs:
   eval:
     runs-on: ubuntu-latest
-    env:
-      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      LLM_PROVIDER: groq
-      JUDGE_PROVIDER: mistral
+    # Deliberately no env/secrets: this repo doesn't put provider keys in GitHub
+    # Actions. With no GROQ_API_KEY/MISTRAL_API_KEY set, run_eval.py skips every
+    # case that needs a live LLM call (marked SKIPPED, not FAIL) and runs only the
+    # rule-based checks that don't need one — see src/eval/scorer.py.
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -30,7 +28,7 @@ jobs:
       - name: Fail on hard-gate failures
         if: always()
         run: |
-          python -c "import json, pathlib, sys; report = pathlib.Path('eval_report.json'); data = json.loads(report.read_text(encoding='utf-8')); failed = [r['case_id'] for r in data['results'] if not r['hard_gate_pass']]; print('Hard-gate failures:', ', '.join(failed) if failed else 'none'); sys.exit(bool(failed))"
+          python -c "import json, pathlib, sys; report = pathlib.Path('eval_report.json'); data = json.loads(report.read_text(encoding='utf-8')); failed = [r['case_id'] for r in data['results'] if r['hard_gate_pass'] is False]; skipped = [r['case_id'] for r in data['results'] if r['hard_gate_pass'] is None]; print('Hard-gate failures:', ', '.join(failed) if failed else 'none'); print('Skipped (no provider key):', ', '.join(skipped) if skipped else 'none'); sys.exit(bool(failed))"
 
       - name: Upload evaluation report
         if: always()

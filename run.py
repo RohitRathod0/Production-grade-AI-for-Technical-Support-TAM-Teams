@@ -84,25 +84,33 @@ def _run_eval(_: argparse.Namespace) -> int:
 
     results = run_eval_main()
 
+    # hard_gate_pass is tri-state: True (passed) / False (genuinely failed) / None
+    # (SKIPPED — no provider key in this environment). Skips are neither passes nor
+    # failures for exit-code purposes: CI has no keys by design (no secrets in the
+    # workflow) and must still exit 0 when nothing that actually ran, failed.
     total = len(results)
-    n_pass = sum(r.hard_gate_pass for r in results)
+    n_pass = sum(1 for r in results if r.hard_gate_pass is True)
+    n_fail = sum(1 for r in results if r.hard_gate_pass is False)
+    n_skip = sum(1 for r in results if r.hard_gate_pass is None)
     scored = [r.quality_score for r in results if r.quality_score is not None]
     avg_quality = sum(scored) / len(scored) if scored else None
 
-    print(f"Eval: {n_pass}/{total} cases passed hard gates ({total - n_pass} failed).")
+    print(f"Eval: {n_pass}/{total} cases passed hard gates, {n_fail} failed, {n_skip} skipped.")
     if avg_quality is not None:
         print(f"Average quality_score (judged cases only, n={len(scored)}): {avg_quality:.3f}")
     else:
         print("Average quality_score: n/a (no cases were judged)")
 
     for r in results:
-        if not r.hard_gate_pass:
+        if r.hard_gate_pass is False:
             print(f"  FAIL {r.case_id}: {r.notes}")
+        elif r.hard_gate_pass is None:
+            print(f"  SKIP {r.case_id}: {r.notes}")
 
     for path in (REPORT_JSON_PATH, REPORT_MD_PATH):
         print(f"{'wrote' if path.is_file() else 'MISSING'}: {path}")
 
-    return 0 if n_pass == total else 1
+    return 0 if n_fail == 0 else 1
 
 
 def _run_ui(args: argparse.Namespace) -> int:
