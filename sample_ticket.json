@@ -1,0 +1,4 @@
+{
+  "subject": "Unable to connect SecureVault to SSO",
+  "body": "Hi team,\n\nWe're experiencing a critical issue with SecureVault. Our SSO pipeline has been failing since approximately 48 hours ago. Error message: 'AUTH_TOKEN_EXPIRED: please reauthenticate'\n\nThis is impacting 497 users in our Operations team. We've tried restarting the service and clearing the cache but the issue persists.\n\nEnvironment: EU-Production\nVersion: 2.5.0\n\nPlease advise urgently."
+}
