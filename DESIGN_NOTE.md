@@ -16,8 +16,10 @@ The determinism claim was narrowed after live testing. Temperature `0` and a fix
 
 The conceptual triage pipeline is classify, retrieve, route, then draft; the current implementation retrieves before its combined classify-and-draft LLM call so the draft can use the selected snippet. Routing is local Python logic after classification. Under a hard latency SLA, I would keep schema validation and deterministic routing, return the classification first, and make the prose draft and judge scoring optional or asynchronous. I would also return no KB citation rather than wait for a weak or ambiguous match. Cutting quote verification would be the wrong trade: it is cheap and protects the most consequential account-brief claims.
 
-## Data sensitivity and scaling
+## Data sensitivity and PII
 
 The provided data is synthetic, but its fields resemble production support data: company names, contact names, escalation notes, ticket bodies, account health, and renewal context. A real deployment needs tenant isolation, access control by support role, encryption in transit and at rest, retention/deletion policies, provider data-processing agreements, redaction or minimization before external LLM calls, and auditable access logs. Prompts and evaluation artifacts must not become an uncontrolled store of customer text.
+
+## Scaling to 10x
 
 One premise needs correction from the implementation: the current code uses a BM25 index, not TF-IDF, and `_get_retriever()` caches it once per process rather than rebuilding it per request. At 10x traffic, the first real bottleneck is therefore synchronous provider latency and retry backoff inside a single FastAPI worker, not index construction. Concurrent requests will queue behind blocking Groq calls; a 429 can add three retries and a fallback HTTP request. The next steps are multiple workers or an async job boundary, connection pooling and bounded concurrency for providers, timeouts/circuit breaking, and an externally managed or shared retrieval index if the corpus grows or workers multiply.
