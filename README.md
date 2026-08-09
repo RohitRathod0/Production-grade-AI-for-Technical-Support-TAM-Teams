@@ -131,13 +131,19 @@ python run.py eval
 The current evaluation run passed all hard gates:
 
 ```text
-Eval: 10/10 cases passed hard gates (0 failed).
-Average quality_score (judged cases only, n=9): 0.920
+Eval: 10/10 cases passed hard gates, 0 failed, 0 skipped.
+Average quality_score (judged cases only, n=9): 0.911
 wrote: eval_report.json
 wrote: eval_report.md
 ```
 
 The complete current results are in [`eval_report.md`](eval_report.md) and [`eval_report.json`](eval_report.json). Rate-limit exhaustion was observed in an earlier run and is documented, with the resulting fallback correction, in the design note's failure-modes section.
+
+CI (`.github/workflows/eval.yml`) runs with no provider keys at all — no secrets are stored in GitHub Actions. Without `GROQ_API_KEY`/`MISTRAL_API_KEY`, every case that needs a live LLM call is marked `SKIPPED`, not `FAIL`; only the fully rule-based case (`brief_05_missing_account`, which never reaches the LLM) runs for real. CI exits 0 as long as nothing that actually ran, failed:
+
+```text
+Eval: 1/10 cases passed hard gates, 0 failed, 9 skipped.
+```
 
 ## Interfaces
 
