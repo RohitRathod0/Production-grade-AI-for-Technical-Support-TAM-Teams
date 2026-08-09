@@ -1,32 +1,28 @@
 {
-  "generated_at": "2026-08-08T14:24:00.159888+00:00",
+  "generated_at": "2026-08-09T06:52:02.616324+00:00",
   "total_cases": 10,
-  "hard_gate_passes": 2,
-  "hard_gate_failures": 8,
+  "hard_gate_passes": 10,
+  "hard_gate_failures": 0,
   "results": [
     {
       "case_id": "triage_01_clean_baseline",
       "task": "triage",
       "adversarial": false,
-      "hard_gate_pass": false,
-      "hard_gate_failures": [
-        "classify_ticket() raised unexpectedly: RetryError(<Future at 0x1f29d64cdd0 state=finished raised RateLimitError>)"
-      ],
-      "quality_score": null,
-      "judge_notes": null,
-      "notes": "classify_ticket() raised unexpectedly: RetryError(<Future at 0x1f29d64cdd0 state=finished raised RateLimitError>)"
+      "hard_gate_pass": true,
+      "hard_gate_failures": [],
+      "quality_score": 0.633,
+      "judge_notes": "KB match snippet is irrelevant to the ticket; reasoning and draft_response are faithful but routing reasoning is incorrect.",
+      "notes": "KB match snippet is irrelevant to the ticket; reasoning and draft_response are faithful but routing reasoning is incorrect."
     },
     {
       "case_id": "triage_02_ambiguous_dual_signal",
       "task": "triage",
       "adversarial": true,
-      "hard_gate_pass": false,
-      "hard_gate_failures": [
-        "classify_ticket() raised unexpectedly: RetryError(<Future at 0x1f29d73b7d0 state=finished raised RateLimitError>)"
-      ],
-      "quality_score": null,
-      "judge_notes": null,
-      "notes": "classify_ticket() raised unexpectedly: RetryError(<Future at 0x1f29d73b7d0 state=finished raised RateLimitError>)"
+      "hard_gate_pass": true,
+      "hard_gate_failures": [],
+      "quality_score": 0.95,
+      "judge_notes": "Output is highly relevant and complete, with minor faithfulness deduction for generic SLA credit reference not explicitly in source data.",
+      "notes": "Output is highly relevant and complete, with minor faithfulness deduction for generic SLA credit reference not explicitly in source data."
     },
     {
       "case_id": "triage_03_no_kb_match",
@@ -42,73 +38,61 @@
       "case_id": "triage_04_missing_account_id",
       "task": "triage",
       "adversarial": true,
-      "hard_gate_pass": false,
-      "hard_gate_failures": [
-        "classify_ticket() raised unexpectedly: RetryError(<Future at 0x1f29eef8440 state=finished raised RateLimitError>)"
-      ],
-      "quality_score": null,
-      "judge_notes": null,
-      "notes": "classify_ticket() raised unexpectedly: RetryError(<Future at 0x1f29eef8440 state=finished raised RateLimitError>)"
+      "hard_gate_pass": true,
+      "hard_gate_failures": [],
+      "quality_score": 0.8,
+      "judge_notes": "KB match is irrelevant to the ticket's error; draft response is generic but not factually incorrect.",
+      "notes": "KB match is irrelevant to the ticket's error; draft response is generic but not factually incorrect."
     },
     {
       "case_id": "triage_05_known_kb_doc_match",
       "task": "triage",
       "adversarial": false,
-      "hard_gate_pass": false,
-      "hard_gate_failures": [
-        "classify_ticket() raised unexpectedly: RetryError(<Future at 0x1f29efd6e70 state=finished raised RateLimitError>)"
-      ],
-      "quality_score": null,
-      "judge_notes": null,
-      "notes": "classify_ticket() raised unexpectedly: RetryError(<Future at 0x1f29efd6e70 state=finished raised RateLimitError>)"
+      "hard_gate_pass": true,
+      "hard_gate_failures": [],
+      "quality_score": 1.0,
+      "judge_notes": "Output perfectly aligns with source data, avoids fabrication, and covers all required elements.",
+      "notes": "Output perfectly aligns with source data, avoids fabrication, and covers all required elements."
     },
     {
       "case_id": "brief_01_at_risk_with_escalation_and_p1",
       "task": "account_brief",
       "adversarial": false,
-      "hard_gate_pass": false,
-      "hard_gate_failures": [
-        "generate_brief() raised unexpectedly: RetryError(<Future at 0x1f29eff4440 state=finished raised RateLimitError>)"
-      ],
-      "quality_score": null,
-      "judge_notes": null,
-      "notes": "generate_brief() raised unexpectedly: RetryError(<Future at 0x1f29eff4440 state=finished raised RateLimitError>)"
+      "hard_gate_pass": true,
+      "hard_gate_failures": [],
+      "quality_score": 1.0,
+      "judge_notes": "Output perfectly matches the source data with no fabrication or omissions.",
+      "notes": "Output perfectly matches the source data with no fabrication or omissions."
     },
     {
       "case_id": "brief_02_healthy_no_tickets",
       "task": "account_brief",
       "adversarial": false,
-      "hard_gate_pass": false,
-      "hard_gate_failures": [
-        "generate_brief() raised unexpectedly: RetryError(<Future at 0x1f29efe6b40 state=finished raised RateLimitError>)"
-      ],
-      "quality_score": null,
-      "judge_notes": null,
-      "notes": "generate_brief() raised unexpectedly: RetryError(<Future at 0x1f29efe6b40 state=finished raised RateLimitError>)"
+      "hard_gate_pass": true,
+      "hard_gate_failures": [],
+      "quality_score": 0.9,
+      "judge_notes": "Output is highly relevant and faithful but invents a 90-day ticket window not present in source and omits plan_tier despite completeness otherwise.",
+      "notes": "Output is highly relevant and faithful but invents a 90-day ticket window not present in source and omits plan_tier despite completeness otherwise."
     },
     {
       "case_id": "brief_03_null_nps",
       "task": "account_brief",
       "adversarial": true,
-      "hard_gate_pass": false,
-      "hard_gate_failures": [
-        "generate_brief() raised unexpectedly: RetryError(<Future at 0x1f29efe7020 state=finished raised RateLimitError>)"
-      ],
-      "quality_score": null,
-      "judge_notes": null,
-      "notes": "generate_brief() raised unexpectedly: RetryError(<Future at 0x1f29efe7020 state=finished raised RateLimitError>)"
+      "hard_gate_pass": true,
+      "hard_gate_failures": [],
+      "quality_score": 1.0,
+      "judge_notes": "Output perfectly matches the source data with no fabrication or omissions.",
+      "notes": "Output perfectly matches the source data with no fabrication or omissions."
     },
     {
       "case_id": "brief_04_determinism",
       "task": "account_brief",
       "adversarial": false,
-      "hard_gate_pass": false,
-      "hard_gate_failures": [
-        "generate_brief() raised unexpectedly: RetryError(<Future at 0x1f29eff4bc0 state=finished raised RateLimitError>)"
-      ],
-      "quality_score": null,
-      "judge_notes": null,
-      "notes": "generate_brief() raised unexpectedly: RetryError(<Future at 0x1f29eff4bc0 state=finished raised RateLimitError>)"
+      "hard_gate_pass": true,
+      "hard_gate_failures": [],
+      "quality_score": 1.0,
+      "judge_notes": "Output perfectly matches the source data with no fabrication or omissions.",
+      "notes": "Output perfectly matches the source data with no fabrication or omissions."
     },
     {
       "case_id": "brief_05_missing_account",
