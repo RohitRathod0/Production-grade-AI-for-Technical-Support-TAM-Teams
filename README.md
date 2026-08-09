@@ -1,6 +1,27 @@
 # support-ai-suite
 
-Support-ticket triage, account-health briefs, and an evaluation harness over the supplied synthetic support dataset.
+*Support-ticket triage, account-health briefs, and an evaluation harness over the supplied synthetic support dataset.*
+
+[![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![LLM: Groq](https://img.shields.io/badge/LLM-Groq-F55036)](https://groq.com/)
+[![Judge: Mistral](https://img.shields.io/badge/Judge-Mistral-FA520F)](https://mistral.ai/)
+[![Eval](https://img.shields.io/badge/eval-10%2F10%20hard%20gates-brightgreen)](eval_report.md)
+
+## Table of Contents
+
+- [Setup](#setup)
+- [Architecture](#architecture)
+- [Sample runs](#sample-runs)
+  - [Task 1 — Ticket triage](#task-1--ticket-triage)
+  - [Task 2 — Account-health brief](#task-2--account-health-brief)
+  - [Task 3 — Evaluation](#task-3--evaluation)
+- [Interfaces](#interfaces)
+- [Design note](#design-note)
+- [Loom](#loom)
+
+---
 
 ## Setup
 
@@ -53,6 +74,66 @@ Fill in `.env`. It is git-ignored; never commit provider keys.
 | `OPENROUTER_MODEL` | Optional | Defaults to `inclusionai/ling-3.0-tiny:free`; verify availability before relying on a free-tier model. |
 
 Provider routing follows PRD §8: Groq is primary, OpenRouter is the narrow 429 fallback, and Mistral judges outputs rather than grading Groq with Groq. Streaming calls do not fail over mid-response.
+
+---
+
+## Architecture
+
+```
+support-ai-suite/
+├── .github/workflows/eval.yml    # CI: runs the eval harness key-free on every push
+├── .env.example                  # Var names only — no real keys
+├── data/                         # Verbatim starter dataset
+│   ├── accounts.json
+│   └── tickets.json
+├── knowledge_base/                # Verbatim starter dataset
+│   ├── billing/billing-and-plans.md
+│   ├── onboarding/onboarding-guide.md
+│   ├── products/
+│   │   ├── analyticshub.md
+│   │   ├── cloudsync.md
+│   │   ├── databridge-pro.md
+│   │   ├── securevault.md
+│   │   └── workflowengine.md
+│   └── troubleshooting/
+│       ├── authentication-sso.md
+│       └── performance-and-integrations.md
+├── src/
+│   ├── config.py                 # Env loading, model defaults
+│   ├── data_loader.py            # tickets.json / accounts.json access, 90-day windowing
+│   ├── kb_index.py               # KB chunking + BM25 retriever
+│   ├── llm_client.py             # Groq / Mistral / OpenRouter routing + fallback
+│   ├── triage/                   # Task 1 — Ticket Triage
+│   │   ├── agent.py              #   classify_ticket()
+│   │   ├── api.py                #   POST /triage
+│   │   ├── prompts.py            #   PROMPT_VERSION = "triage_v1"
+│   │   ├── retriever.py          #   product-scoped KB matching
+│   │   └── schema.py             #   TriageOutput
+│   ├── account_brief/            # Task 2 — Account-Health Brief
+│   │   ├── agent.py              #   generate_brief()
+│   │   ├── api.py                #   GET /account-brief/{id}
+│   │   ├── prompts.py            #   PROMPT_VERSION = "brief_v1"
+│   │   ├── risk_rules.py         #   deterministic risk pre-pass
+│   │   └── schema.py             #   AccountBrief
+│   ├── eval/                     # Task 3 — Evaluation harness
+│   │   ├── cases_triage.py       #   5 triage test cases (real tickets)
+│   │   ├── cases_brief.py        #   5 brief test cases (real accounts)
+│   │   ├── prompts.py            #   PROMPT_VERSION = "judge_v1"
+│   │   ├── scorer.py             #   hard gates + LLM-as-judge
+│   │   └── run_eval.py           #   writes eval_report.json / .md
+│   └── ui/
+│       └── app.py                # Streamlit UI (triage + brief tabs)
+├── tests/                        # Smoke + regression tests (real data, no mocks)
+├── prompts/CHANGELOG.md          # Prompt version history
+├── eval_report.json              # Committed output of the last eval run
+├── eval_report.md
+├── DESIGN_NOTE.md
+├── DATA_SCHEMA.md                # Starter dataset field reference
+├── requirements.txt
+└── run.py                        # Single entry point: triage | brief | eval | serve | ui
+```
+
+---
 
 ## Sample runs
 
@@ -145,6 +226,8 @@ CI (`.github/workflows/eval.yml`) runs with no provider keys at all — no secre
 Eval: 1/10 cases passed hard gates, 0 failed, 9 skipped.
 ```
 
+---
+
 ## Interfaces
 
 ```bash
@@ -152,9 +235,13 @@ python run.py serve --port 8000   # FastAPI: POST /triage, GET /account-brief/{i
 python run.py ui                  # Streamlit UI
 ```
 
+---
+
 ## Design note
 
 [Read the design note](DESIGN_NOTE.md).
+
+---
 
 ## Loom
 
