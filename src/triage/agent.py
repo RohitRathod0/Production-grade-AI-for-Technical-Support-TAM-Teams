@@ -92,6 +92,28 @@ def _route(category: str, urgency: str) -> Routing:
     return Routing(team=team, escalation=escalation, reasoning=reasoning)
 
 
+def _strip_code_fence(text: str) -> str:
+    """Strip a leading/trailing ``` (optionally ```json) fence if present.
+
+    llm_client.chat's streaming path omits response_format=json_object (Groq buffers
+    the whole completion server-side before emitting anything when json_mode+stream
+    are combined, defeating real token-by-token streaming — see llm_client._groq_call
+    for the measured evidence). Without provider-enforced JSON mode, Groq wraps the
+    JSON object in a markdown code fence on every call observed live, even though the
+    prompt explicitly says not to — so this strip is a required second line of
+    defense, not a nicety, for the streaming path to ever produce parseable JSON.
+    """
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return text
+    stripped = stripped[3:]
+    if stripped[:4].lower() == "json":
+        stripped = stripped[4:]
+    if stripped.endswith("```"):
+        stripped = stripped[:-3]
+    return stripped.strip()
+
+
 def _classify(
     subject: str,
     body: str,
@@ -113,7 +135,7 @@ def _classify(
                     on_draft_token(token)
             raw = "".join(raw_parts)
         try:
-            return TriageClassification.model_validate(json.loads(raw))
+            return TriageClassification.model_validate(json.loads(_strip_code_fence(raw)))
         except (json.JSONDecodeError, ValueError) as exc:
             last_error = exc
     raise ValueError(f"LLM classification failed after {_MAX_CLASSIFY_ATTEMPTS} attempts: {last_error}")

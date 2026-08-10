@@ -13,7 +13,8 @@ products: {products}.
 
 Given a raw support ticket, classify it and draft a short first response. Respond with a \
 single JSON object with exactly these keys: product, product_area, category, urgency, \
-reasoning, draft_response.
+reasoning, draft_response. Output only the raw JSON object itself — no markdown code \
+fences (no ``` before or after it) and no commentary of any kind, before or after it.
 
 - product: exactly one of {products}.
 - product_area: the module/feature area within that product the ticket concerns (short \
